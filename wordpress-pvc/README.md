@@ -1,34 +1,70 @@
-# AWS EKS Storage
+# EKS Storage with EBS - Elastic Block Store
 
-## AWS EBS CSI Driver
-- We are going to use EBS CSI Driver and use EBS Volumes for persistence storage to MySQL Database
+## Step-01: Introduction
+- Create IAM Policy for EBS
+- Associate IAM Policy to Worker Node IAM Role
+- Install EBS CSI Driver
 
-## Topics
-1. Install EBS CSI Driver
-2. Create MySQL Database Deployment & ClusterIP Service
-3. Create User Management Microservice Deployment & NodePort Service
+## Step-02:  Create IAM policyy
+- Go to Services -> IAM
+- Create a Policy 
+  - Select JSON tab and copy paste the below JSON
+```json
 
-## Concepts
-| Kubernetes Object  | YAML File |
-| ------------- | ------------- |
-| Storage Class  | 01-storage-class.yml |
-| Persistent Volume Claim | 02-persistent-volume-claim.yml   |
-| Config Map  | 03-UserManagement-ConfigMap.yml  |
-| Deployment, Environment Variables, Volumes, VolumeMounts  | 04-mysql-deployment.yml  |
-| ClusterIP Service  | 05-mysql-clusterip-service.yml  |
-| Deployment, Environment Variables  | 06-UserManagementMicroservice-Deployment.yml  |
-| NodePort Service  | 07-UserManagement-Service.yml  |
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AttachVolume",
+        "ec2:CreateSnapshot",
+        "ec2:CreateTags",
+        "ec2:CreateVolume",
+        "ec2:DeleteSnapshot",
+        "ec2:DeleteTags",
+        "ec2:DeleteVolume",
+        "ec2:DescribeInstances",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeTags",
+        "ec2:DescribeVolumes",
+        "ec2:DetachVolume"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+  - Review the same in **Visual Editor** 
+  - Click on **Review Policy**
+  - **Name:** Amazon_EBS_CSI_Driver
+  - **Description:** Policy for EC2 Instances to access Elastic Block Store
+  - Click on **Create Policy**
 
+## Step-03: Get the IAM role Worker Nodes using and Associate this policy to that role
+```
+# Get Worker node IAM Role ARN
+kubectl -n kube-system describe configmap aws-auth
 
+# from output check rolearn
+rolearn: arn:aws:iam::180789647333:role/eksctl-eksdemo1-nodegroup-eksdemo-NodeInstanceRole-IJN07ZKXAWNN
+```
+- Go to Services -> IAM -> Roles 
+- Search for role with name **eksctl-eksdemo1-nodegroup** and open it
+- Click on **Permissions** tab
+- Click on **Attach Policies**
+- Search for **Amazon_EBS_CSI_Driver** and click on **Attach Policy**
 
-## References:
-- **Dynamic Volume Provisioning:** https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/
-- https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/deploy/kubernetes/overlays/stable
-- https://docs.aws.amazon.com/eks/latest/userguide/ebs-csi.html
-- https://github.com/kubernetes-sigs/aws-ebs-csi-driver
-- https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/examples/kubernetes/dynamic-provisioning
-- https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/deploy/kubernetes/overlays/stable
-- https://github.com/kubernetes-sigs/aws-ebs-csi-driver
-- **Legacy: Will be deprecated** 
-  - https://kubernetes.io/docs/concepts/storage/storage-classes/#aws-ebs
-  - https://docs.aws.amazon.com/eks/latest/userguide/storage-classes.html
+## Step-04: Deploy Amazon EBS CSI Driver  
+- Verify kubectl version, it should be 1.14 or later
+```
+kubectl version --client --short
+```
+- Deploy Amazon EBS CSI Driver
+```
+# Deploy EBS CSI Driver
+kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master"
+
+# Verify ebs-csi pods running
+kubectl get pods -n kube-system
+```
